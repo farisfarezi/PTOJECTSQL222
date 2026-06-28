@@ -1,31 +1,62 @@
-// MOCK SERVICE — aktifkan import supabase setelah database terhubung
-// import { supabase } from '../lib/supabase';
-
-const mockLokasi = [
-  { id: 1, nama_lokasi: 'Gedung A', detail_lokasi: 'Gedung Perkuliahan Utama' },
-  { id: 2, nama_lokasi: 'Gedung B', detail_lokasi: 'Gedung Laboratorium' },
-  { id: 3, nama_lokasi: 'Gedung C', detail_lokasi: 'Gedung Administrasi' },
-  { id: 4, nama_lokasi: 'Aula Utama', detail_lokasi: 'Ruang Serbaguna Kampus' },
-  { id: 5, nama_lokasi: 'Lab Komputer', detail_lokasi: 'Gedung B Lantai 2' },
-  { id: 6, nama_lokasi: 'Kantin', detail_lokasi: 'Area Kantin Pusat' },
-  { id: 7, nama_lokasi: 'Masjid', detail_lokasi: 'Masjid Kampus Polinela' },
-  { id: 8, nama_lokasi: 'Lapangan', detail_lokasi: 'Lapangan Olahraga Utama' },
-];
+import { supabase } from '../lib/supabase';
 
 export const lokasiService = {
-  getAll: async () => mockLokasi,
+  getAll: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('lokasi')
+        .select('*')
+        .order('nama_lokasi');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching lokasi:', error);
+      return [];
+    }
+  },
+
   create: async ({ nama_lokasi, detail_lokasi }) => {
-    const newItem = { id: Date.now(), nama_lokasi, detail_lokasi };
-    mockLokasi.push(newItem);
-    return newItem;
+    try {
+      const { data, error } = await supabase
+        .from('lokasi')
+        .insert([{ nama_lokasi, detail_lokasi }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw new Error(error.message || 'Gagal membuat lokasi');
+    }
   },
+
   update: async (id, { nama_lokasi, detail_lokasi }) => {
-    const item = mockLokasi.find(l => l.id === id);
-    if (item) { item.nama_lokasi = nama_lokasi; item.detail_lokasi = detail_lokasi; }
-    return item;
+    try {
+      const { data, error } = await supabase
+        .from('lokasi')
+        .update({ nama_lokasi, detail_lokasi })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw new Error(error.message || 'Gagal mengupdate lokasi');
+    }
   },
+
   delete: async (id) => {
-    const idx = mockLokasi.findIndex(l => l.id === id);
-    if (idx !== -1) mockLokasi.splice(idx, 1);
+    try {
+      const { error } = await supabase
+        .from('lokasi')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (error) {
+      throw new Error(error.message || 'Gagal menghapus lokasi');
+    }
   },
 };

@@ -1,76 +1,184 @@
-// MOCK SERVICE — aktifkan import supabase setelah database terhubung
-// import { supabase } from '../lib/supabase';
-
-const defaultLaporanData = [
-  { id: 1001, id_user: 'user-001', judul: 'AC Ruang Kelas A1 Tidak Dingin', deskripsi: 'AC di ruang A1 lantai 1 meneteskan air dan tidak dingin.', status: 'menunggu_verifikasi', tingkat_kerusakan: 'sedang', created_at: '2026-06-28T08:00:00Z', updated_at: '2026-06-28T08:00:00Z', users: { nama: 'Budi Santoso', role: 'mahasiswa' }, kategori: { nama_kategori: 'Elektronik & IT' }, lokasi: { nama_lokasi: 'Gedung A' } },
-  { id: 1002, id_user: 'user-002', judul: 'Toilet Lantai 2 Gedung B Mampet', deskripsi: 'Toilet pria tidak bisa disiram.', status: 'diverifikasi', tingkat_kerusakan: 'berat', created_at: '2026-06-27T14:00:00Z', updated_at: '2026-06-27T15:00:00Z', users: { nama: 'Siti Rahayu', role: 'dosen' }, kategori: { nama_kategori: 'Air & Sanitasi' }, lokasi: { nama_lokasi: 'Gedung B' } },
-  { id: 1003, id_user: 'user-003', judul: 'Lampu Aula Utama Mati', deskripsi: 'Beberapa lampu di tengah aula mati.', status: 'diproses', tingkat_kerusakan: 'ringan', created_at: '2026-06-26T09:30:00Z', updated_at: '2026-06-26T10:00:00Z', assigned_to: 'teknisi-0001', users: { nama: 'Ahmad Fauzi', role: 'mahasiswa' }, kategori: { nama_kategori: 'Kelistrikan' }, lokasi: { nama_lokasi: 'Aula Utama' } },
-  { id: 1004, id_user: 'user-004', judul: 'Proyektor Ruang Lab Rusak', deskripsi: 'Warna proyektor kekuningan.', status: 'selesai', tingkat_kerusakan: 'sedang', created_at: '2026-06-25T11:00:00Z', updated_at: '2026-06-26T14:00:00Z', assigned_to: 'teknisi-0002', users: { nama: 'Dewi Lestari', role: 'mahasiswa' }, kategori: { nama_kategori: 'Elektronik & IT' }, lokasi: { nama_lokasi: 'Lab Komputer' } },
-];
-
-let mockLaporanData = JSON.parse(localStorage.getItem('mockLaporanData')) || defaultLaporanData;
-
-const saveLaporan = () => localStorage.setItem('mockLaporanData', JSON.stringify(mockLaporanData));
+import { supabase } from '../lib/supabase';
 
 export const laporanService = {
-  getAll: async () => [...mockLaporanData],
+  getAll: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('laporan')
+        .select(`
+          *,
+          users(nama, role),
+          kategori(nama_kategori),
+          lokasi(nama_lokasi)
+        `)
+        .order('created_at', { ascending: false });
 
-  getByUser: async (_userId) => mockLaporanData,
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching laporan:', error);
+      return [];
+    }
+  },
+
+  getByUser: async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('laporan')
+        .select(`
+          *,
+          users(nama, role),
+          kategori(nama_kategori),
+          lokasi(nama_lokasi)
+        `)
+        .eq('id_user', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching laporan by user:', error);
+      return [];
+    }
+  },
 
   getById: async (id) => {
-    const item = mockLaporanData.find(l => l.id === parseInt(id) || l.id === id);
-    if (!item) throw new Error('Laporan tidak ditemukan');
-    return item;
+    try {
+      const { data, error } = await supabase
+        .from('laporan')
+        .select(`
+          *,
+          users(nama, role, email),
+          kategori(nama_kategori),
+          lokasi(nama_lokasi)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error('Laporan tidak ditemukan');
+      return data;
+    } catch (error) {
+      throw new Error(error.message || 'Laporan tidak ditemukan');
+    }
   },
 
   create: async (payload) => {
-    const newLaporan = {
-      id: Date.now(),
-      ...payload,
-      status: 'menunggu_verifikasi',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      users: { nama: 'Pelapor (Mock)', role: 'mahasiswa' },
-      kategori: { nama_kategori: 'Kategori Mock' },
-      lokasi: { nama_lokasi: 'Lokasi Mock' }
-    };
-    mockLaporanData.unshift(newLaporan);
-    saveLaporan();
-    return newLaporan;
+    try {
+      const { data, error } = await supabase
+        .from('laporan')
+        .insert([payload])
+        .select(`
+          *,
+          users(nama, role),
+          kategori(nama_kategori),
+          lokasi(nama_lokasi)
+        `)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw new Error(error.message || 'Gagal membuat laporan');
+    }
   },
 
   updateStatus: async (id, status, catatanAdmin = null) => {
-    const item = mockLaporanData.find(l => l.id === parseInt(id) || l.id === id);
-    if (item) {
-      item.status = status;
-      item.updated_at = new Date().toISOString();
-      if (catatanAdmin) item.catatan_admin = catatanAdmin;
-      saveLaporan();
+    try {
+      const updates = { status, updated_at: new Date().toISOString() };
+      if (catatanAdmin) updates.catatan_admin = catatanAdmin;
+
+      const { data, error } = await supabase
+        .from('laporan')
+        .update(updates)
+        .eq('id', id)
+        .select(`
+          *,
+          users(nama, role),
+          kategori(nama_kategori),
+          lokasi(nama_lokasi)
+        `)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw new Error(error.message || 'Gagal mengupdate status');
     }
-    return item;
   },
 
   assignTeknisi: async (id, teknisiId) => {
-    const item = mockLaporanData.find(l => l.id === parseInt(id) || l.id === id);
-    if (item) {
-      item.status = 'diproses';
-      item.assigned_to = teknisiId;
-      item.updated_at = new Date().toISOString();
-      saveLaporan();
+    try {
+      const { data, error } = await supabase
+        .from('laporan')
+        .update({
+          assigned_to: teknisiId,
+          status: 'diproses',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select(`
+          *,
+          users(nama, role),
+          kategori(nama_kategori),
+          lokasi(nama_lokasi)
+        `)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw new Error(error.message || 'Gagal assign teknisi');
     }
-    return item;
   },
 
-  uploadFoto: async (_userId, file) => {
-    return URL.createObjectURL(file); // Mock upload return local object URL
-  },
+  uploadFoto: async (file) => {
+    try {
+      const fileName = `${Date.now()}-${file.name}`;
+      const { data, error } = await supabase.storage
+        .from('laporan_fotos')
+        .upload(fileName, file);
 
-  submitBuktiPerbaikan: async ({ idLaporan, idTeknisi: _idTeknisi, file: _file, catatan: _catatan }) => {
-    const item = mockLaporanData.find(l => l.id === parseInt(idLaporan) || l.id === idLaporan);
-    if (item) {
-      item.status = 'selesai';
-      item.updated_at = new Date().toISOString();
-      saveLaporan();
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('laporan_fotos')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      throw new Error(error.message || 'Gagal upload foto');
     }
   },
+
+  submitBuktiPerbaikan: async ({ idLaporan, idTeknisi, file, catatan }) => {
+    try {
+      let fotoUrl = null;
+      if (file) {
+        fotoUrl = await laporanService.uploadFoto(file);
+      }
+
+      const { data, error } = await supabase
+        .from('bukti_perbaikan')
+        .insert([
+          {
+            id_laporan: idLaporan,
+            id_teknisi: idTeknisi,
+            foto_selesai: fotoUrl,
+            catatan_teknisi: catatan
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update status laporan menjadi selesai
+      await laporanService.updateStatus(idLaporan, 'selesai');
+
+      return data;
+    } catch (error) {
+      throw new Error(error.message || 'Gagal submit bukti perbaikan');
+    }
+  }
 };

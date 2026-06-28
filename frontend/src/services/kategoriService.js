@@ -1,29 +1,62 @@
-// MOCK SERVICE — aktifkan import supabase setelah database terhubung
-// import { supabase } from '../lib/supabase';
-
-const mockKategori = [
-  { id: 1, nama_kategori: 'Elektronik & IT' },
-  { id: 2, nama_kategori: 'Kelistrikan' },
-  { id: 3, nama_kategori: 'Infrastruktur' },
-  { id: 4, nama_kategori: 'Air & Sanitasi' },
-  { id: 5, nama_kategori: 'Kebersihan' },
-  { id: 6, nama_kategori: 'Keamanan' },
-];
+import { supabase } from '../lib/supabase';
 
 export const kategoriService = {
-  getAll: async () => mockKategori,
+  getAll: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('kategori')
+        .select('*')
+        .order('nama_kategori');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching kategori:', error);
+      return [];
+    }
+  },
+
   create: async (nama_kategori) => {
-    const newItem = { id: Date.now(), nama_kategori };
-    mockKategori.push(newItem);
-    return newItem;
+    try {
+      const { data, error } = await supabase
+        .from('kategori')
+        .insert([{ nama_kategori }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw new Error(error.message || 'Gagal membuat kategori');
+    }
   },
+
   update: async (id, nama_kategori) => {
-    const item = mockKategori.find(k => k.id === id);
-    if (item) item.nama_kategori = nama_kategori;
-    return item;
+    try {
+      const { data, error } = await supabase
+        .from('kategori')
+        .update({ nama_kategori })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw new Error(error.message || 'Gagal mengupdate kategori');
+    }
   },
+
   delete: async (id) => {
-    const idx = mockKategori.findIndex(k => k.id === id);
-    if (idx !== -1) mockKategori.splice(idx, 1);
+    try {
+      const { error } = await supabase
+        .from('kategori')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (error) {
+      throw new Error(error.message || 'Gagal menghapus kategori');
+    }
   },
 };
