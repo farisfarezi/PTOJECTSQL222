@@ -14,8 +14,13 @@ export default function ProtectedRoute({ children, allowedRoles = [] }) {
       try {
         const sessionUser = await authService.getUser();
         if (sessionUser) {
-          const profile = await authService.getUserProfile(sessionUser.id);
-          if (mounted) setUser({ ...sessionUser, ...profile });
+          // Jika user sudah punya role (bypass session), langsung pakai datanya
+          if (sessionUser.role) {
+            if (mounted) setUser(sessionUser);
+          } else {
+            const profile = await authService.getUserProfile(sessionUser.id);
+            if (mounted) setUser({ ...sessionUser, ...profile });
+          }
         }
       } catch (err) {
         console.error('Auth error:', err);
