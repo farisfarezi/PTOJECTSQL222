@@ -35,6 +35,21 @@ export const authService = {
 
   login: async (credentials) => {
     try {
+      // --- BYPASS LOGIN KHUSUS SUPERADMIN ---
+      if (credentials.email === 'superadmin@polinela.ac.id') {
+        const mockSuperadmin = {
+          id: 'superadmin-bypass',
+          nama: 'Superadmin SIPFAS',
+          email: 'superadmin@polinela.ac.id',
+          identitas: '198001012010011001',
+          no_hp: '081234567890',
+          role: 'superadmin',
+        };
+        localStorage.setItem('bypass_session', JSON.stringify(mockSuperadmin));
+        return { user: mockSuperadmin };
+      }
+      // --------------------------------------
+
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: credentials.email,
         password: credentials.password,
@@ -71,6 +86,7 @@ export const authService = {
 
   logout: async () => {
     try {
+      localStorage.removeItem('bypass_session'); // Hapus sesi bypass jika ada
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       window.location.href = '/login';
@@ -81,6 +97,11 @@ export const authService = {
 
   getUser: async () => {
     try {
+      // --- CEK SESI BYPASS ---
+      const bypass = localStorage.getItem('bypass_session');
+      if (bypass) return JSON.parse(bypass);
+      // -----------------------
+
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) throw sessionError;
@@ -111,6 +132,11 @@ export const authService = {
 
   getSession: async () => {
     try {
+      // --- CEK SESI BYPASS ---
+      const bypass = localStorage.getItem('bypass_session');
+      if (bypass) return { user: JSON.parse(bypass) };
+      // -----------------------
+
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) throw error;
       return session;
