@@ -22,7 +22,10 @@ export default function Login() {
         window.location.href = '/dashboard';
       }
     } catch (err) {
-      setError(err.message);
+      const msg = typeof err.message === 'string' && err.message && err.message !== '{}'
+        ? err.message
+        : 'Email atau password salah. Silakan coba lagi.';
+      setError(msg);
     }
     setLoading(false);
   };
