@@ -1,0 +1,320 @@
+import re
+
+file_path = r"d:\P\PLAN_SIPFAS_POLINELA_UI.md"
+
+with open(file_path, "r", encoding="utf-8") as f:
+    content = f.read()
+
+# 1. Update Authentication features
+content = content.replace(
+    "- Middleware token JWT\n- Hash password menggunakan bcrypt",
+    "- Supabase Auth (Email/Password, Magic Link)\n- Proteksi database menggunakan Row Level Security (RLS)"
+)
+
+# 2. Update Frontend services structure
+content = content.replace(
+    "│   ├── services/\n│   │   ├── api.js",
+    "│   ├── lib/\n│   │   └── supabase.js\n│   ├── services/\n│   │   ├── api.js"
+)
+
+# 3. Update Backend Structure
+old_backend_struct = """## 12. Struktur Folder Backend
+
+```bash
+backend/
+├── src/
+│   ├── config/
+│   │   └── db.js
+│   ├── controllers/
+│   │   ├── authController.js
+│   │   ├── laporanController.js
+│   │   ├── adminController.js
+│   │   ├── teknisiController.js
+│   │   ├── kategoriController.js
+│   │   └── lokasiController.js
+│   ├── middleware/
+│   │   ├── authMiddleware.js
+│   │   ├── roleMiddleware.js
+│   │   └── uploadMiddleware.js
+│   ├── models/
+│   │   ├── userModel.js
+│   │   ├── laporanModel.js
+│   │   ├── kategoriModel.js
+│   │   ├── lokasiModel.js
+│   │   └── buktiPerbaikanModel.js
+│   ├── routes/
+│   │   ├── authRoutes.js
+│   │   ├── laporanRoutes.js
+│   │   ├── adminRoutes.js
+│   │   ├── teknisiRoutes.js
+│   │   ├── kategoriRoutes.js
+│   │   └── lokasiRoutes.js
+│   ├── uploads/
+│   ├── app.js
+│   └── server.js
+├── .env
+├── package.json
+└── README.md
+```"""
+
+new_backend_struct = """## 12. Struktur Backend (Supabase)
+
+Proyek ini menggunakan **Supabase** sebagai Backend as a Service (BaaS), sehingga tidak memerlukan custom backend (Node.js). Semua logika database, auth, dan storage di-handle oleh Supabase.
+
+```bash
+supabase/
+├── migrations/
+│   ├── 20240101_init_schema.sql
+│   └── 20240102_setup_rls.sql
+├── seed.sql
+└── config.toml
+```"""
+content = content.replace(old_backend_struct, new_backend_struct)
+
+# 4. Update Database
+old_db = """## 13. Rencana Database
+
+## 13.1 Tabel users
+
+```sql
+CREATE TABLE users (
+  id_user INT AUTO_INCREMENT PRIMARY KEY,
+  nama VARCHAR(100) NOT NULL,
+  identitas VARCHAR(50) NOT NULL,
+  email VARCHAR(100) NOT NULL UNIQUE,
+  no_hp VARCHAR(20),
+  password VARCHAR(255) NOT NULL,
+  role ENUM('mahasiswa', 'dosen', 'staff', 'admin', 'teknisi', 'superadmin') DEFAULT 'mahasiswa',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+## 13.2 Tabel kategori
+
+```sql
+CREATE TABLE kategori (
+  id_kategori INT AUTO_INCREMENT PRIMARY KEY,
+  nama_kategori VARCHAR(100) NOT NULL
+);
+```
+
+## 13.3 Tabel lokasi
+
+```sql
+CREATE TABLE lokasi (
+  id_lokasi INT AUTO_INCREMENT PRIMARY KEY,
+  nama_lokasi VARCHAR(100) NOT NULL,
+  detail_lokasi TEXT
+);
+```
+
+## 13.4 Tabel laporan
+
+```sql
+CREATE TABLE laporan (
+  id_laporan INT AUTO_INCREMENT PRIMARY KEY,
+  id_user INT NOT NULL,
+  id_kategori INT NOT NULL,
+  id_lokasi INT NOT NULL,
+  judul VARCHAR(150) NOT NULL,
+  deskripsi TEXT NOT NULL,
+  tingkat_kerusakan ENUM('ringan', 'sedang', 'berat', 'darurat') DEFAULT 'ringan',
+  foto_kerusakan VARCHAR(255),
+  status ENUM('menunggu_verifikasi', 'diverifikasi', 'ditolak', 'diproses', 'selesai') DEFAULT 'menunggu_verifikasi',
+  catatan_admin TEXT,
+  assigned_to INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (id_user) REFERENCES users(id_user),
+  FOREIGN KEY (id_kategori) REFERENCES kategori(id_kategori),
+  FOREIGN KEY (id_lokasi) REFERENCES lokasi(id_lokasi),
+  FOREIGN KEY (assigned_to) REFERENCES users(id_user)
+);
+```
+
+## 13.5 Tabel bukti_perbaikan
+
+```sql
+CREATE TABLE bukti_perbaikan (
+  id_bukti INT AUTO_INCREMENT PRIMARY KEY,
+  id_laporan INT NOT NULL,
+  id_teknisi INT NOT NULL,
+  foto_selesai VARCHAR(255),
+  catatan_teknisi TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (id_laporan) REFERENCES laporan(id_laporan),
+  FOREIGN KEY (id_teknisi) REFERENCES users(id_user)
+);
+```"""
+
+new_db = """## 13. Rencana Database (Supabase PostgreSQL)
+
+Catatan: Autentikasi akan menggunakan fitur tabel bawaan `auth.users` dari Supabase. Tabel `public.users` digunakan untuk menyimpan profil.
+
+## 13.1 Tabel users
+
+```sql
+CREATE TYPE user_role AS ENUM ('mahasiswa', 'dosen', 'staff', 'admin', 'teknisi', 'superadmin');
+
+CREATE TABLE users (
+  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+  nama TEXT NOT NULL,
+  identitas TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  no_hp TEXT,
+  role user_role DEFAULT 'mahasiswa',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+## 13.2 Tabel kategori
+
+```sql
+CREATE TABLE kategori (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  nama_kategori TEXT NOT NULL
+);
+```
+
+## 13.3 Tabel lokasi
+
+```sql
+CREATE TABLE lokasi (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  nama_lokasi TEXT NOT NULL,
+  detail_lokasi TEXT
+);
+```
+
+## 13.4 Tabel laporan
+
+```sql
+CREATE TYPE damage_level AS ENUM ('ringan', 'sedang', 'berat', 'darurat');
+CREATE TYPE report_status AS ENUM ('menunggu_verifikasi', 'diverifikasi', 'ditolak', 'diproses', 'selesai');
+
+CREATE TABLE laporan (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  id_user UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  id_kategori BIGINT NOT NULL REFERENCES kategori(id),
+  id_lokasi BIGINT NOT NULL REFERENCES lokasi(id),
+  judul TEXT NOT NULL,
+  deskripsi TEXT NOT NULL,
+  tingkat_kerusakan damage_level DEFAULT 'ringan',
+  foto_kerusakan TEXT, -- URL dari Supabase Storage
+  status report_status DEFAULT 'menunggu_verifikasi',
+  catatan_admin TEXT,
+  assigned_to UUID REFERENCES users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+## 13.5 Tabel bukti_perbaikan
+
+```sql
+CREATE TABLE bukti_perbaikan (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  id_laporan BIGINT NOT NULL REFERENCES laporan(id) ON DELETE CASCADE,
+  id_teknisi UUID NOT NULL REFERENCES users(id),
+  foto_selesai TEXT, -- URL dari Supabase Storage
+  catatan_teknisi TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```"""
+content = content.replace(old_db, new_db)
+
+# 5. Update API Endpoint -> Supabase Client
+old_api = """## 14. API Endpoint
+
+## 14.1 Auth
+
+| Method | Endpoint | Fungsi |
+|---|---|---|
+| POST | `/api/auth/register` | Register pengguna |
+| POST | `/api/auth/login` | Login pengguna |
+| POST | `/api/auth/logout` | Logout pengguna |
+
+## 14.2 Laporan
+
+| Method | Endpoint | Fungsi |
+|---|---|---|
+| GET | `/api/laporan` | Ambil semua laporan |
+| GET | `/api/laporan/:id` | Ambil detail laporan |
+| POST | `/api/laporan` | Buat laporan baru |
+| PUT | `/api/laporan/:id` | Update laporan |
+| DELETE | `/api/laporan/:id` | Hapus laporan |
+
+## 14.3 Admin
+
+| Method | Endpoint | Fungsi |
+|---|---|---|
+| GET | `/api/admin/dashboard` | Data dashboard admin |
+| PUT | `/api/admin/laporan/:id/verifikasi` | Verifikasi laporan |
+| PUT | `/api/admin/laporan/:id/tolak` | Tolak laporan |
+| PUT | `/api/admin/laporan/:id/assign` | Tugaskan laporan ke teknisi |
+| PUT | `/api/admin/laporan/:id/status` | Update status laporan |
+| GET | `/api/admin/laporan/export/pdf` | Export laporan ke PDF |
+
+## 14.4 Teknisi
+
+| Method | Endpoint | Fungsi |
+|---|---|---|
+| GET | `/api/teknisi/tugas` | Ambil tugas teknisi |
+| GET | `/api/teknisi/tugas/:id` | Detail tugas teknisi |
+| PUT | `/api/teknisi/tugas/:id/proses` | Ubah status menjadi diproses |
+| PUT | `/api/teknisi/tugas/:id/selesai` | Ubah status menjadi selesai |
+| POST | `/api/teknisi/bukti` | Upload bukti perbaikan |"""
+
+new_api = """## 14. Akses Data (Supabase Client)
+
+Akses data tidak lagi menggunakan REST API konvensional, melainkan langsung menggunakan `supabase-js`.
+
+## 14.1 Auth
+- **Register**: `supabase.auth.signUp()`
+- **Login**: `supabase.auth.signInWithPassword()`
+- **Logout**: `supabase.auth.signOut()`
+- **Get User**: `supabase.auth.getUser()`
+
+## 14.2 Laporan
+- **Get Laporan**: `supabase.from('laporan').select('*, kategori(*), lokasi(*)')`
+- **Insert**: `supabase.from('laporan').insert([...])`
+- **Update**: `supabase.from('laporan').update([...]).eq('id', ...)`
+- **Upload Foto**: `supabase.storage.from('laporan_images').upload(...)`
+
+## 14.3 Admin & Teknisi
+- Data difilter langsung di client dengan `.eq('status', 'menunggu_verifikasi')` dsb.
+- **Assign Teknisi**: `supabase.from('laporan').update({ assigned_to: ... })`
+- **Upload Bukti**: `supabase.storage.from('bukti_perbaikan').upload(...)`"""
+content = content.replace(old_api, new_api)
+
+# 6. Update Teknologi
+content = content.replace(
+    "- Node.js\n- Express.js\n- MySQL\n- JWT\n- Bcrypt\n- Multer\n- Dotenv\n- CORS",
+    "- Supabase (BaaS)\n- Supabase Auth\n- Supabase Storage\n- Row Level Security (RLS)"
+)
+content = content.replace("- MySQL\n- phpMyAdmin", "- PostgreSQL (disediakan oleh Supabase)")
+content = content.replace(
+    "- Frontend: Netlify atau Vercel\n- Backend: Render atau Railway\n- Database: Aiven, Railway, Supabase PostgreSQL, atau hosting MySQL",
+    "- Frontend: Netlify\n- Backend & Database: Supabase"
+)
+
+# 7. Update Tahapan Pengerjaan
+content = content.replace(
+    "### Task Backend:\n\n- Setup Express.js.\n- Setup koneksi MySQL.\n- Setup dotenv.\n- Setup CORS.\n- Setup struktur route dan controller.",
+    "### Task Backend (Supabase):\n\n- Buat project di Supabase.\n- Setup tabel PostgreSQL via SQL Editor.\n- Konfigurasi Row Level Security (RLS).\n- Setup Storage Buckets untuk foto laporan."
+)
+content = content.replace("- Backend berjalan.\n- Landing page tampil sesuai UI.\n- Database terkoneksi.", "- Project terhubung ke Supabase.\n- Landing page tampil sesuai UI.\n- Database tables siap digunakan.")
+content = content.replace(
+    "- Hash password dengan bcrypt.\n- Membuat JWT token.\n- Membuat middleware auth.",
+    "- Setup Supabase Auth.\n- Implementasi login/register dengan `supabase.auth`.\n- Melindungi routes dengan pengecekan session."
+)
+content = content.replace(
+    "- Deploy frontend.\n- Deploy backend.\n- Deploy database.",
+    "- Deploy frontend ke Netlify.\n- Finalisasi Supabase (RLS rules & Production settings)."
+)
+
+with open(file_path, "w", encoding="utf-8") as f:
+    f.write(content)
+print("Updated successfully")
